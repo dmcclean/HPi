@@ -101,7 +101,7 @@ foreign import ccall unsafe "bcm2835.h bcm2835_i2c_write" c_writeI2C :: CString 
 --read some bytes from the bus
 foreign import ccall unsafe "bcm2835.h bcm2835_i2c_read" c_readI2C :: CString -> CUShort -> IO CUChar
 --reads a certain register with the repeated start method
-foreign import ccall unsafe "bcm2835.h bcm2835_i2c_read_register_rs" c_writeReadI2C :: CString -> CString -> CUShort -> IO CUChar
+foreign import ccall unsafe "bcm2835.h bcm2835_i2c_write_read_rs" c_writeReadI2C :: CString -> CUInt -> CString -> CUInt -> IO CUChar
 
 ------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------ Exportable functions --------------------------------------------------------------------
@@ -208,7 +208,7 @@ setI2cBaudRate :: Word32 -> IO ()
 setI2cBaudRate a = c_setBaudRateI2C $ fromIntegral a
 
 -- |Writes the data in the 'ByteString' to the specified adress. Throws an IOException if an error occurs.
-writeI2C :: Address -> BS.ByteString -> IO ()	--writes a bytestring to the specified address
+writeI2C :: Address -> BS.ByteString -> IO ()   --writes a bytestring to the specified address
 writeI2C address by = BS.useAsCString by $ \bs -> do
     setI2cAddress address
     readresult <- c_writeI2C bs (fromIntegral $ BS.length by)
@@ -229,7 +229,8 @@ readI2C address num = allocaBytes (num+1) $ \buf -> do --is the +1 necessary??
 -- it, using the \"repeated start\" I2C method. Throws an IOException if an error occurs.
 writeReadI2C :: Address -> BS.ByteString -> Int -> IO BS.ByteString
 writeReadI2C address by num = BS.useAsCString by $ \bs -> do --marshall the register-containing bytestring
-    allocaBytes (num+1) $ \buf -> do	--allocate a buffer for the response
+    allocaBytes (num+1) $ \buf -> do    --allocate a buffer for the response
+        let len = BS.length by
         setI2cAddress address
-        readresult <- c_writeReadI2C bs buf (fromIntegral num)
+        readresult <- c_writeReadI2C bs (fromIntegral len) buf (fromIntegral num)
         actOnResult readresult buf

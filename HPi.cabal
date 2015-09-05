@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                HPi
-version:             0.3.0
+version:             0.4.1
 synopsis:            GPIO and I2C functions for the Raspberry Pi.
 description:         This package is a FFI wrapper around the bcm2835 library by Mike McCauley, it also includes a few utility functions for easier use of the imported functions.
 homepage:            https://github.com/WJWH/HPi
@@ -18,7 +18,7 @@ cabal-version:       >=1.8
 library
   exposed-modules:     System.RaspberryPi.GPIO
   -- other-modules:       
-  build-depends:       base ==4.5.*, bytestring ==0.9.*
+  build-depends:       base >=4.5, bytestring >=0.9
   
 source-repository head
   type:     git
