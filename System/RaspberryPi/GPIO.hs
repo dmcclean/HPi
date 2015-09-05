@@ -99,7 +99,7 @@ foreign import ccall unsafe "bcm2835.h bcm2835_i2c_set_baudrate"    c_setBaudRat
 -- writes some bytes to the bus
 foreign import ccall unsafe "bcm2835.h bcm2835_i2c_write" c_writeI2C :: CString -> CUInt -> IO CUChar
 --read some bytes from the bus
-foreign import ccall unsafe "bcm2835.h bcm2835_i2c_read" c_readI2C :: CString -> CUShort -> IO CUChar
+foreign import ccall unsafe "bcm2835.h bcm2835_i2c_read" c_readI2C :: CString -> CUInt -> IO CUChar
 --reads a certain register with the repeated start method
 foreign import ccall unsafe "bcm2835.h bcm2835_i2c_write_read_rs" c_writeReadI2C :: CString -> CUInt -> CString -> CUInt -> IO CUChar
 
