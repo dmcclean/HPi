@@ -126,12 +126,12 @@ withI2C f = bracket_    initI2C
                         f
 
 --
-actOnResult :: CUChar -> CString -> IO BS.ByteString
+actOnResult :: CUChar -> CStringLen -> IO BS.ByteString
 actOnResult rr buf = case rr of
     0x01 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Received an unexpected NACK." Nothing Nothing
     0x02 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Received Clock Stretch Timeout." Nothing Nothing 
     0x04 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Not all data was read." Nothing Nothing
-    0x00 -> BS.packCString buf --convert C buffer to a bytestring
+    0x00 -> BS.packCStringLen buf --convert C buffer to a bytestring
 
 
 -- Mapping raspberry pi pin number to internal bmc2835 pin number, ugly solution, but meh. Also, the existence of mutiple versions
@@ -223,7 +223,7 @@ readI2C :: Address -> Int -> IO BS.ByteString --reads num bytes from the specifi
 readI2C address num = allocaBytes (num+1) $ \buf -> do --is the +1 necessary??
     setI2cAddress address
     readresult <- c_readI2C buf (fromIntegral num)
-    actOnResult readresult buf
+    actOnResult readresult (buf, num)
 
 -- |Writes a 'ByteString' containing a register address to the specified address, then reads num bytes from
 -- it, using the \"repeated start\" I2C method. Throws an IOException if an error occurs.
@@ -233,4 +233,4 @@ writeReadI2C address by num = BS.useAsCString by $ \bs -> do --marshall the regi
         let len = BS.length by
         setI2cAddress address
         readresult <- c_writeReadI2C bs (fromIntegral len) buf (fromIntegral num)
-        actOnResult readresult buf
+        actOnResult readresult (buf, len)
