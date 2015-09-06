@@ -68,7 +68,7 @@ type Address = Word8 --adress of an I2C slave
 -- |Either high or low.
 type LogicLevel = Bool
 
-data I2CError = UnexpectedNACK | ClockStretchTimeout | NotAllDataRead
+data I2CError = UnexpectedNACK | ClockStretchTimeout | NotAllDataRead | ChecksumInvalid
   deriving (Eq, Ord, Show)
 
 type I2C = ExceptT I2CError IO
