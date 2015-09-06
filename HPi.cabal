@@ -18,7 +18,7 @@ cabal-version:       >=1.8
 library
   exposed-modules:     System.RaspberryPi.GPIO
   -- other-modules:       
-  build-depends:       base >=4.5, bytestring >=0.9
+  build-depends:       base >=4.5, bytestring >=0.9, mtl >= 2.2, transformers >= 0.4
   extra-libraries:     bcm2835
   
 source-repository head
