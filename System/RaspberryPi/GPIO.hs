@@ -8,6 +8,7 @@ module System.RaspberryPi.GPIO (
     PinMode(..),
     LogicLevel,
     Address,
+    I2CError,
     -- *General functions
     withGPIO,
     -- *GPIO specific functions
@@ -18,9 +19,9 @@ module System.RaspberryPi.GPIO (
     withI2C,
     setI2cClockDivider,
     setI2cBaudRate,
-    writeI2C,
-    readI2C,
-    writeReadI2C
+    writeI2C',
+    readI2C',
+    writeReadI2C'
     ) where
 
 -- FFI wrapper over the I2C portions of the BCM2835 library by Mike McCauley, also some utility functions to
@@ -63,6 +64,9 @@ type Address = Word8 --adress of an I2C slave
 
 -- |Either high or low.
 type LogicLevel = Bool
+
+data I2CError = UnexpectedNACK | ClockStretchTimeout | NotAllDataRead
+  deriving (Eq, Ord, Show)
 
 ------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------ Foreign imports -------------------------------------------------------------------------
@@ -132,6 +136,13 @@ actOnResult rr buf = case rr of
     0x02 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Received Clock Stretch Timeout." Nothing Nothing 
     0x04 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Not all data was read." Nothing Nothing
     0x00 -> BS.packCStringLen buf --convert C buffer to a bytestring
+
+actOnResult' :: CUChar -> CStringLen -> Either I2CError BS.ByteString
+actOnResult' rr buf = case rr of
+    0x01 -> Left UnexpectedNACK
+    0x02 -> Left ClockStretchTimeout
+    0x04 -> Left NotAllDataRead
+    0x00 -> Right $ BS.packCStringLen buf
 
 
 -- Mapping raspberry pi pin number to internal bmc2835 pin number, ugly solution, but meh. Also, the existence of mutiple versions
