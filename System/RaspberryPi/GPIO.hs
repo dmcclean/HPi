@@ -9,7 +9,7 @@ module System.RaspberryPi.GPIO (
     LogicLevel,
     I2C,
     Address,
-    I2CError,
+    I2CError(..),
     -- *General functions
     withGPIO,
     -- *GPIO specific functions
