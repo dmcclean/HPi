@@ -137,13 +137,16 @@ actOnResult rr buf = case rr of
     0x04 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Not all data was read." Nothing Nothing
     0x00 -> BS.packCStringLen buf --convert C buffer to a bytestring
 
-actOnResult' :: CUChar -> CStringLen -> Either I2CError BS.ByteString
-actOnResult' rr buf = case rr of
+actOnResultE :: CUChar -> CStringLen -> Either I2CError BS.ByteString
+actOnResultE rr buf = case rr of
     0x01 -> Left UnexpectedNACK
     0x02 -> Left ClockStretchTimeout
     0x04 -> Left NotAllDataRead
     0x00 -> Right $ BS.packCStringLen buf
 
+actOnResultM :: CUChar -> CStringLen -> Maybe BS.ByteString
+actOnResultM 0x00 buf = Just $ BS.packCStringLen buf
+actOnResultM _    _   = Nothing
 
 -- Mapping raspberry pi pin number to internal bmc2835 pin number, ugly solution, but meh. Also, the existence of mutiple versions
 -- of the pin layout makes this the most elegant solution without resorting to state monads (which I don't want to do because that
@@ -219,27 +222,41 @@ setI2cBaudRate :: Word32 -> IO ()
 setI2cBaudRate a = c_setBaudRateI2C $ fromIntegral a
 
 -- |Writes the data in the 'ByteString' to the specified adress. Throws an IOException if an error occurs.
-writeI2C :: Address -> BS.ByteString -> IO ()   --writes a bytestring to the specified address
-writeI2C address by = BS.useAsCString by $ \bs -> do
+writeI2C :: Address -> BS.ByteString -> IO ()
+writeI2C address by = do
+                        readresult <- writeI2C' address by
+                        case readresult of
+                          0x01 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Received an unexpected NACK." Nothing Nothing
+                          0x02 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Received Clock Stretch Timeout." Nothing Nothing 
+                          0x04 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Not all data was read." Nothing Nothing
+                          0x00 -> return ()
+
+-- |Writes the data in the 'ByteString' to the specified adress. Returns raw response code.
+writeI2C' :: Address -> BS.ByteString -> IO (CUChar)   --writes a bytestring to the specified address
+writeI2C' address by = BS.useAsCString by $ \bs -> do
     setI2cAddress address
-    readresult <- c_writeI2C bs (fromIntegral $ BS.length by)
-    case readresult of
-        0x01 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Received an unexpected NACK." Nothing Nothing
-        0x02 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Received Clock Stretch Timeout." Nothing Nothing 
-        0x04 -> throwIO $ IOError Nothing IllegalOperation "I2C: " "Not all data was read." Nothing Nothing
-        0x00 -> return ()
+    c_writeI2C bs (fromIntegral $ BS.length by)
 
 -- |Reads num bytes from the specified address. Throws an IOException if an error occurs.
 readI2C :: Address -> Int -> IO BS.ByteString --reads num bytes from the specified address
-readI2C address num = allocaBytes (num+1) $ \buf -> do --is the +1 necessary??
+readI2C address num = readI2C' address num >>= actOnResult
+
+-- |Reads num bytes from the specified address. Returns raw response code.
+readI2C' :: Address -> Int -> IO (CUChar, CStringLen) --reads num bytes from the specified address
+readI2C' address num = allocaBytes (num+1) $ \buf -> do --is the +1 necessary??
     setI2cAddress address
     readresult <- c_readI2C buf (fromIntegral num)
-    actOnResult readresult (buf, num)
+    return (buf, num)
 
 -- |Writes a 'ByteString' containing a register address to the specified address, then reads num bytes from
 -- it, using the \"repeated start\" I2C method. Throws an IOException if an error occurs.
 writeReadI2C :: Address -> BS.ByteString -> Int -> IO BS.ByteString
-writeReadI2C address by num = BS.useAsCString by $ \bs -> do --marshall the register-containing bytestring
+writeReadI2C address by num = writeReadI2C' address by num >>= actOnResult
+
+-- |Writes a 'ByteString' containing a register address to the specified address, then reads num bytes from
+-- it, using the \"repeated start\" I2C method. Throws an IOException if an error occurs.
+writeReadI2C' :: Address -> BS.ByteString -> Int -> IO (CUChar, CStringLen)
+writeReadI2C' address by num = BS.useAsCString by $ \bs -> do --marshall the register-containing bytestring
     allocaBytes (num+1) $ \buf -> do    --allocate a buffer for the response
         let len = BS.length by
         setI2cAddress address
